@@ -1,0 +1,355 @@
+import React, { useState, useRef, useEffect } from 'react';
+import { Play, Square, Upload, Volume2, Music, X, Plus, Settings, Layers, Zap, Radio } from 'lucide-react';
+
+// 將 SoundCard 移出主組件，避免每次 Render 都重新建立導致 Input 失去焦點
+const SoundCard = ({ 
+  sound, 
+  type, 
+  isEditMode, 
+  activeBgmId, 
+  activeSfxId, // 改為單一 ID
+  playBgm, 
+  playSfx, 
+  removeSound, 
+  updateSound, 
+  handleFileUpload 
+}) => {
+  const isBgm = type === 'bgm';
+  // 判斷是否啟動：BGM 和 SFX 現在都是比對單一 ID
+  const isActive = isBgm ? activeBgmId === sound.id : activeSfxId === sound.id;
+  const hasFile = !!sound.url;
+
+  const colorMap = {
+    slate: 'bg-slate-700 border-slate-600',
+    red: 'bg-red-900/40 border-red-500/50 text-red-100',
+    blue: 'bg-blue-900/40 border-blue-500/50 text-blue-100',
+    green: 'bg-emerald-900/40 border-emerald-500/50 text-emerald-100',
+    purple: 'bg-purple-900/40 border-purple-500/50 text-purple-100',
+    orange: 'bg-orange-900/40 border-orange-500/50 text-orange-100',
+  };
+
+  const activeStyle = isActive 
+    ? 'border-white bg-opacity-100 shadow-[0_0_15px_rgba(255,255,255,0.4)] scale-[0.98]' 
+    : 'hover:-translate-y-1 hover:shadow-lg active:scale-95';
+
+  if (isEditMode) {
+    return (
+      <div className="bg-[#1a1c23] border border-slate-700 rounded-lg p-2 flex flex-col gap-2 relative group">
+        <button onClick={() => removeSound(sound.id, type)} className="absolute top-1 right-1 text-slate-600 hover:text-red-400 p-1">
+          <X size={14} />
+        </button>
+        
+        <input 
+          type="text" 
+          value={sound.name}
+          onChange={(e) => updateSound(sound.id, type, 'name', e.target.value)}
+          className="bg-transparent border-b border-slate-700 focus:border-blue-500 outline-none text-xs font-medium w-full text-slate-200 pb-1 mt-1"
+          placeholder="名稱"
+        />
+
+        <div className={`h-12 border border-dashed rounded flex items-center justify-center ${hasFile ? 'border-green-500/30 bg-green-500/10' : 'border-slate-700'}`}>
+          {hasFile ? <span className="text-[10px] text-green-400">已載入</span> : <span className="text-[10px] text-slate-500">無檔案</span>}
+        </div>
+
+        <div className="flex justify-between items-center mt-auto">
+          <div className="flex gap-1">
+            {['red', 'blue', 'green', 'purple', 'orange'].map(c => (
+              <button
+                key={c}
+                onClick={() => updateSound(sound.id, type, 'color', c)}
+                className={`w-2.5 h-2.5 rounded-full transition-transform ${sound.color === c ? 'ring-1 ring-white scale-110' : 'opacity-40 hover:opacity-100'}`}
+                style={{ backgroundColor: c }}
+              />
+            ))}
+          </div>
+          <label className="cursor-pointer text-slate-400 hover:text-white transition-colors">
+            <Upload size={14} />
+            <input type="file" accept="audio/*" className="hidden" onChange={(e) => handleFileUpload(sound.id, type, e)} />
+          </label>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <button 
+      onClick={() => isBgm ? playBgm(sound) : playSfx(sound)}
+      disabled={!hasFile}
+      className={`
+        relative h-24 rounded-lg transition-all duration-100 ease-out flex flex-col items-center justify-center p-2 border-2
+        ${hasFile 
+          ? `${colorMap[sound.color]} ${activeStyle}`
+          : 'bg-[#15171e] border-slate-800 text-slate-600 cursor-not-allowed opacity-50'
+        }
+      `}
+    >
+      {isActive && <div className="absolute inset-0 bg-white/10 animate-pulse rounded-lg" />}
+      <div className={`mb-1 transition-transform ${isActive ? 'scale-110' : ''}`}>
+         {isBgm ? <Radio size={20} /> : <Zap size={20} />}
+      </div>
+      <span className="font-bold text-xs md:text-sm tracking-wide line-clamp-2 px-1 z-10 text-center">
+        {sound.name}
+      </span>
+    </button>
+  );
+};
+
+export default function App() {
+  const [bgms, setBgms] = useState([
+    { id: 'b1', name: '開場背景音', url: null, color: 'blue' },
+    { id: 'b2', name: '懸疑氣氛', url: null, color: 'purple' },
+    { id: 'b3', name: '感人配樂', url: null, color: 'orange' },
+  ]);
+
+  const [sfxs, setSfxs] = useState([
+    { id: 's1', name: '掌聲', url: null, color: 'green' },
+    { id: 's2', name: '笑聲', url: null, color: 'green' },
+    { id: 's3', name: '錯誤蜂鳴', url: null, color: 'red' },
+    { id: 's4', name: '正確叮咚', url: null, color: 'blue' },
+  ]);
+  
+  const [activeBgmId, setActiveBgmId] = useState(null);
+  const [activeSfxId, setActiveSfxId] = useState(null); // 改為單一狀態，不再是陣列
+  
+  const [volume, setVolume] = useState(0.8);
+  const [isBgmPlaying, setIsBgmPlaying] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(true);
+  
+  // Audio Refs
+  const bgmRef = useRef(null); 
+  const sfxRef = useRef(null); // SFX 現在也使用單一播放器
+
+  // 監聽音量變化
+  useEffect(() => {
+    if (bgmRef.current) bgmRef.current.volume = volume;
+    if (sfxRef.current) sfxRef.current.volume = volume;
+  }, [volume]);
+
+  const addNewButton = (type) => {
+    const newSound = {
+      id: Math.random().toString(36).substr(2, 9),
+      name: type === 'bgm' ? `BGM ${bgms.length + 1}` : `SFX ${sfxs.length + 1}`,
+      url: null,
+      color: 'slate'
+    };
+    if (type === 'bgm') setBgms(prev => [...prev, newSound]);
+    else setSfxs(prev => [...prev, newSound]);
+  };
+
+  const handleFileUpload = (id, listType, event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const objectUrl = URL.createObjectURL(file);
+    const fileName = file.name.replace(/\.[^/.]+$/, "");
+
+    const updateList = listType === 'bgm' ? setBgms : setSfxs;
+    const currentList = listType === 'bgm' ? bgms : sfxs;
+
+    updateList(prev => prev.map(sound => {
+      if (sound.id === id) {
+        if (sound.url) URL.revokeObjectURL(sound.url);
+        const isDefaultName = sound.name.startsWith(listType === 'bgm' ? 'BGM' : 'SFX') || sound.name === `按鈕 ${currentList.indexOf(sound) + 1}`;
+        return { ...sound, url: objectUrl, name: isDefaultName ? fileName : sound.name };
+      }
+      return sound;
+    }));
+    
+    event.target.value = null;
+  };
+
+  const updateSound = (id, listType, key, value) => {
+    const updateList = listType === 'bgm' ? setBgms : setSfxs;
+    updateList(prev => prev.map(s => s.id === id ? { ...s, [key]: value } : s));
+  };
+
+  const removeSound = (id, listType) => {
+    if (listType === 'bgm' && activeBgmId === id) stopAll();
+    if (listType === 'sfx' && activeSfxId === id) stopAll(); // 簡化：刪除正在播的就全停
+    
+    const updateList = listType === 'bgm' ? setBgms : setSfxs;
+    updateList(prev => {
+      const target = prev.find(s => s.id === id);
+      if (target && target.url) URL.revokeObjectURL(target.url);
+      return prev.filter(s => s.id !== id);
+    });
+  };
+
+  // --- 播放邏輯 ---
+
+  // 1. 背景音樂 (維持不變：單軌獨佔，可重新觸發)
+  const playBgm = (sound) => {
+    if (isEditMode || !sound.url) return;
+    const audio = bgmRef.current;
+    if (!audio) return;
+
+    audio.pause();
+    audio.currentTime = 0;
+    
+    audio.src = sound.url;
+    audio.play()
+      .then(() => {
+        setIsBgmPlaying(true);
+        setActiveBgmId(sound.id);
+      })
+      .catch(e => console.error("BGM Error:", e));
+  };
+
+  // 2. 特效音效 (更新：單軌獨佔 + 防止重複觸發)
+  const playSfx = (sound) => {
+    if (isEditMode || !sound.url) return;
+    const audio = sfxRef.current;
+    if (!audio) return;
+
+    // 邏輯重點：如果點擊的是「當前正在播放」的音效，則忽略操作
+    if (activeSfxId === sound.id && !audio.paused) {
+      return; 
+    }
+
+    // 如果是不同的音效，或者之前的已經播完了，則進行切換/播放
+    // HTML5 Audio 更換 src 時會自動停止前一個播放
+    audio.pause();
+    audio.currentTime = 0;
+    audio.src = sound.url;
+    
+    audio.play()
+      .then(() => {
+        setActiveSfxId(sound.id);
+      })
+      .catch(e => console.error("SFX Error:", e));
+  };
+
+  // 停止所有聲音
+  const stopAll = () => {
+    if (bgmRef.current) {
+      bgmRef.current.pause();
+      bgmRef.current.currentTime = 0;
+    }
+    setIsBgmPlaying(false);
+    setActiveBgmId(null);
+
+    // 新增：停止 SFX
+    if (sfxRef.current) {
+      sfxRef.current.pause();
+      sfxRef.current.currentTime = 0;
+    }
+    setActiveSfxId(null);
+  };
+
+  const handleBgmEnded = () => {
+    setIsBgmPlaying(false);
+    setActiveBgmId(null);
+  };
+
+  // 新增：SFX 結束處理
+  const handleSfxEnded = () => {
+    setActiveSfxId(null);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#111318] text-white p-4 font-sans flex flex-col">
+      <div className="max-w-5xl mx-auto w-full flex-1 flex flex-col gap-4">
+        
+        {/* Top Control Bar */}
+        <div className="bg-[#1f222b] rounded-xl p-3 shadow-lg border border-slate-800 flex justify-between items-center sticky top-0 z-50">
+          <div className="flex items-center gap-2">
+             <div className="bg-blue-600 p-1.5 rounded-md"><Settings size={18} /></div>
+             <span className="font-bold hidden md:inline">雙軌音控台</span>
+          </div>
+
+          <div className="flex items-center gap-4 bg-[#111318] px-4 py-2 rounded-lg border border-slate-800">
+             <Volume2 size={16} className="text-slate-400" />
+             <input 
+               type="range" min="0" max="1" step="0.01" value={volume}
+               onChange={(e) => setVolume(parseFloat(e.target.value))}
+               className="w-24 accent-blue-500 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer"
+             />
+             <div className="w-px h-4 bg-slate-700 mx-2"></div>
+             <button onClick={stopAll} className="flex items-center gap-1.5 text-red-400 hover:text-red-300 transition-colors text-sm font-bold">
+                <Square size={12} fill="currentColor" /> 停止所有
+             </button>
+          </div>
+
+          <button
+            onClick={() => { if(isEditMode) stopAll(); setIsEditMode(!isEditMode); }}
+            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all border ${isEditMode ? 'bg-slate-700 border-slate-600' : 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20'}`}
+          >
+            {isEditMode ? '完成設定' : '進入編輯'}
+          </button>
+        </div>
+
+        {/* Hidden Players */}
+        <audio ref={bgmRef} onEnded={handleBgmEnded} />
+        <audio ref={sfxRef} onEnded={handleSfxEnded} /> {/* 新增 SFX 專用播放器 */}
+
+        {/* Section 1: Background Music */}
+        <div className="bg-[#1f222b] rounded-xl p-4 shadow-lg border border-slate-800/50">
+           <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-700/50">
+              <Radio className="text-purple-400" size={18} />
+              <h2 className="text-sm font-bold text-slate-200">背景音樂 (BGM)</h2>
+              <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full ml-auto">模式：切換重播</span>
+           </div>
+           
+           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              {bgms.map(sound => (
+                <SoundCard 
+                  key={sound.id} 
+                  sound={sound} 
+                  type="bgm" 
+                  isEditMode={isEditMode}
+                  activeBgmId={activeBgmId}
+                  activeSfxId={activeSfxId}
+                  playBgm={playBgm}
+                  playSfx={playSfx}
+                  removeSound={removeSound}
+                  updateSound={updateSound}
+                  handleFileUpload={handleFileUpload}
+                />
+              ))}
+              {isEditMode && (
+                <button onClick={() => addNewButton('bgm')} className="h-24 border-2 border-dashed border-slate-700 rounded-lg flex items-center justify-center text-slate-500 hover:text-purple-400 hover:border-purple-400/50 hover:bg-slate-800/50 transition-all">
+                  <Plus size={24} />
+                </button>
+              )}
+           </div>
+        </div>
+
+        {/* Section 2: Sound Effects */}
+        <div className="bg-[#1f222b] rounded-xl p-4 shadow-lg border border-slate-800/50 flex-1">
+           <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-700/50">
+              <Zap className="text-yellow-400" size={18} />
+              <h2 className="text-sm font-bold text-slate-200">特效音效 (SFX)</h2>
+              <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full ml-auto">模式：單軌鎖定 (播完才可重按)</span>
+           </div>
+           
+           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+              {sfxs.map(sound => (
+                <SoundCard 
+                  key={sound.id} 
+                  sound={sound} 
+                  type="sfx" 
+                  isEditMode={isEditMode}
+                  activeBgmId={activeBgmId}
+                  activeSfxId={activeSfxId}
+                  playBgm={playBgm}
+                  playSfx={playSfx}
+                  removeSound={removeSound}
+                  updateSound={updateSound}
+                  handleFileUpload={handleFileUpload}
+                />
+              ))}
+              {isEditMode && (
+                <button onClick={() => addNewButton('sfx')} className="h-24 border-2 border-dashed border-slate-700 rounded-lg flex items-center justify-center text-slate-500 hover:text-yellow-400 hover:border-yellow-400/50 hover:bg-slate-800/50 transition-all">
+                  <Plus size={24} />
+                </button>
+              )}
+           </div>
+        </div>
+        
+        <div className="text-center text-slate-600 text-[10px]">
+           {isEditMode ? '點擊上傳圖示載入音樂。設定完成後點擊右上角進入演出模式。' : 'BGM 點擊切換，SFX 播放中無法重按。'}
+        </div>
+      </div>
+    </div>
+  );
+}
