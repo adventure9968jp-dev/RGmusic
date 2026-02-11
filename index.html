@@ -1,355 +1,427 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { Play, Square, Upload, Volume2, Music, X, Plus, Settings, Layers, Zap, Radio } from 'lucide-react';
-
-// 將 SoundCard 移出主組件，避免每次 Render 都重新建立導致 Input 失去焦點
-const SoundCard = ({ 
-  sound, 
-  type, 
-  isEditMode, 
-  activeBgmId, 
-  activeSfxId, // 改為單一 ID
-  playBgm, 
-  playSfx, 
-  removeSound, 
-  updateSound, 
-  handleFileUpload 
-}) => {
-  const isBgm = type === 'bgm';
-  // 判斷是否啟動：BGM 和 SFX 現在都是比對單一 ID
-  const isActive = isBgm ? activeBgmId === sound.id : activeSfxId === sound.id;
-  const hasFile = !!sound.url;
-
-  const colorMap = {
-    slate: 'bg-slate-700 border-slate-600',
-    red: 'bg-red-900/40 border-red-500/50 text-red-100',
-    blue: 'bg-blue-900/40 border-blue-500/50 text-blue-100',
-    green: 'bg-emerald-900/40 border-emerald-500/50 text-emerald-100',
-    purple: 'bg-purple-900/40 border-purple-500/50 text-purple-100',
-    orange: 'bg-orange-900/40 border-orange-500/50 text-orange-100',
-  };
-
-  const activeStyle = isActive 
-    ? 'border-white bg-opacity-100 shadow-[0_0_15px_rgba(255,255,255,0.4)] scale-[0.98]' 
-    : 'hover:-translate-y-1 hover:shadow-lg active:scale-95';
-
-  if (isEditMode) {
-    return (
-      <div className="bg-[#1a1c23] border border-slate-700 rounded-lg p-2 flex flex-col gap-2 relative group">
-        <button onClick={() => removeSound(sound.id, type)} className="absolute top-1 right-1 text-slate-600 hover:text-red-400 p-1">
-          <X size={14} />
-        </button>
-        
-        <input 
-          type="text" 
-          value={sound.name}
-          onChange={(e) => updateSound(sound.id, type, 'name', e.target.value)}
-          className="bg-transparent border-b border-slate-700 focus:border-blue-500 outline-none text-xs font-medium w-full text-slate-200 pb-1 mt-1"
-          placeholder="名稱"
-        />
-
-        <div className={`h-12 border border-dashed rounded flex items-center justify-center ${hasFile ? 'border-green-500/30 bg-green-500/10' : 'border-slate-700'}`}>
-          {hasFile ? <span className="text-[10px] text-green-400">已載入</span> : <span className="text-[10px] text-slate-500">無檔案</span>}
-        </div>
-
-        <div className="flex justify-between items-center mt-auto">
-          <div className="flex gap-1">
-            {['red', 'blue', 'green', 'purple', 'orange'].map(c => (
-              <button
-                key={c}
-                onClick={() => updateSound(sound.id, type, 'color', c)}
-                className={`w-2.5 h-2.5 rounded-full transition-transform ${sound.color === c ? 'ring-1 ring-white scale-110' : 'opacity-40 hover:opacity-100'}`}
-                style={{ backgroundColor: c }}
-              />
-            ))}
-          </div>
-          <label className="cursor-pointer text-slate-400 hover:text-white transition-colors">
-            <Upload size={14} />
-            <input type="file" accept="audio/*" className="hidden" onChange={(e) => handleFileUpload(sound.id, type, e)} />
-          </label>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <button 
-      onClick={() => isBgm ? playBgm(sound) : playSfx(sound)}
-      disabled={!hasFile}
-      className={`
-        relative h-24 rounded-lg transition-all duration-100 ease-out flex flex-col items-center justify-center p-2 border-2
-        ${hasFile 
-          ? `${colorMap[sound.color]} ${activeStyle}`
-          : 'bg-[#15171e] border-slate-800 text-slate-600 cursor-not-allowed opacity-50'
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>鋼鈑及型鋼規格計算</title>
+    <style>
+        :root {
+            --bg-body: #f0f2f5; --bg-container: #ffffff; --text-main: #333333;
+            --text-muted: #666666; --input-bg: #ffffff; --input-border: #dddddd; --table-th: #f8f9fa;
+            --accent-blue: #0d47a1; --row-hover: #f1f3f4;
         }
-      `}
-    >
-      {isActive && <div className="absolute inset-0 bg-white/10 animate-pulse rounded-lg" />}
-      <div className={`mb-1 transition-transform ${isActive ? 'scale-110' : ''}`}>
-         {isBgm ? <Radio size={20} /> : <Zap size={20} />}
-      </div>
-      <span className="font-bold text-xs md:text-sm tracking-wide line-clamp-2 px-1 z-10 text-center">
-        {sound.name}
-      </span>
-    </button>
-  );
-};
 
-export default function App() {
-  const [bgms, setBgms] = useState([
-    { id: 'b1', name: '開場背景音', url: null, color: 'blue' },
-    { id: 'b2', name: '懸疑氣氛', url: null, color: 'purple' },
-    { id: 'b3', name: '感人配樂', url: null, color: 'orange' },
-  ]);
+        [data-theme="dark"] {
+            --bg-body: #121212; --bg-container: #1e1e1e; --text-main: #ffffff;
+            --text-muted: #bbbbbb; --input-bg: #2d2d2d; --input-border: #444444; --table-th: #333333;
+            --accent-blue: #1565c0; --row-hover: #2c2c2c;
+        }
 
-  const [sfxs, setSfxs] = useState([
-    { id: 's1', name: '掌聲', url: null, color: 'green' },
-    { id: 's2', name: '笑聲', url: null, color: 'green' },
-    { id: 's3', name: '錯誤蜂鳴', url: null, color: 'red' },
-    { id: 's4', name: '正確叮咚', url: null, color: 'blue' },
-  ]);
-  
-  const [activeBgmId, setActiveBgmId] = useState(null);
-  const [activeSfxId, setActiveSfxId] = useState(null); // 改為單一狀態，不再是陣列
-  
-  const [volume, setVolume] = useState(0.8);
-  const [isBgmPlaying, setIsBgmPlaying] = useState(false);
-  const [isEditMode, setIsEditMode] = useState(true);
-  
-  // Audio Refs
-  const bgmRef = useRef(null); 
-  const sfxRef = useRef(null); // SFX 現在也使用單一播放器
-
-  // 監聽音量變化
-  useEffect(() => {
-    if (bgmRef.current) bgmRef.current.volume = volume;
-    if (sfxRef.current) sfxRef.current.volume = volume;
-  }, [volume]);
-
-  const addNewButton = (type) => {
-    const newSound = {
-      id: Math.random().toString(36).substr(2, 9),
-      name: type === 'bgm' ? `BGM ${bgms.length + 1}` : `SFX ${sfxs.length + 1}`,
-      url: null,
-      color: 'slate'
-    };
-    if (type === 'bgm') setBgms(prev => [...prev, newSound]);
-    else setSfxs(prev => [...prev, newSound]);
-  };
-
-  const handleFileUpload = (id, listType, event) => {
-    const file = event.target.files[0];
-    if (!file) return;
-
-    const objectUrl = URL.createObjectURL(file);
-    const fileName = file.name.replace(/\.[^/.]+$/, "");
-
-    const updateList = listType === 'bgm' ? setBgms : setSfxs;
-    const currentList = listType === 'bgm' ? bgms : sfxs;
-
-    updateList(prev => prev.map(sound => {
-      if (sound.id === id) {
-        if (sound.url) URL.revokeObjectURL(sound.url);
-        const isDefaultName = sound.name.startsWith(listType === 'bgm' ? 'BGM' : 'SFX') || sound.name === `按鈕 ${currentList.indexOf(sound) + 1}`;
-        return { ...sound, url: objectUrl, name: isDefaultName ? fileName : sound.name };
-      }
-      return sound;
-    }));
-    
-    event.target.value = null;
-  };
-
-  const updateSound = (id, listType, key, value) => {
-    const updateList = listType === 'bgm' ? setBgms : setSfxs;
-    updateList(prev => prev.map(s => s.id === id ? { ...s, [key]: value } : s));
-  };
-
-  const removeSound = (id, listType) => {
-    if (listType === 'bgm' && activeBgmId === id) stopAll();
-    if (listType === 'sfx' && activeSfxId === id) stopAll(); // 簡化：刪除正在播的就全停
-    
-    const updateList = listType === 'bgm' ? setBgms : setSfxs;
-    updateList(prev => {
-      const target = prev.find(s => s.id === id);
-      if (target && target.url) URL.revokeObjectURL(target.url);
-      return prev.filter(s => s.id !== id);
-    });
-  };
-
-  // --- 播放邏輯 ---
-
-  // 1. 背景音樂 (維持不變：單軌獨佔，可重新觸發)
-  const playBgm = (sound) => {
-    if (isEditMode || !sound.url) return;
-    const audio = bgmRef.current;
-    if (!audio) return;
-
-    audio.pause();
-    audio.currentTime = 0;
-    
-    audio.src = sound.url;
-    audio.play()
-      .then(() => {
-        setIsBgmPlaying(true);
-        setActiveBgmId(sound.id);
-      })
-      .catch(e => console.error("BGM Error:", e));
-  };
-
-  // 2. 特效音效 (更新：單軌獨佔 + 防止重複觸發)
-  const playSfx = (sound) => {
-    if (isEditMode || !sound.url) return;
-    const audio = sfxRef.current;
-    if (!audio) return;
-
-    // 邏輯重點：如果點擊的是「當前正在播放」的音效，則忽略操作
-    if (activeSfxId === sound.id && !audio.paused) {
-      return; 
-    }
-
-    // 如果是不同的音效，或者之前的已經播完了，則進行切換/播放
-    // HTML5 Audio 更換 src 時會自動停止前一個播放
-    audio.pause();
-    audio.currentTime = 0;
-    audio.src = sound.url;
-    
-    audio.play()
-      .then(() => {
-        setActiveSfxId(sound.id);
-      })
-      .catch(e => console.error("SFX Error:", e));
-  };
-
-  // 停止所有聲音
-  const stopAll = () => {
-    if (bgmRef.current) {
-      bgmRef.current.pause();
-      bgmRef.current.currentTime = 0;
-    }
-    setIsBgmPlaying(false);
-    setActiveBgmId(null);
-
-    // 新增：停止 SFX
-    if (sfxRef.current) {
-      sfxRef.current.pause();
-      sfxRef.current.currentTime = 0;
-    }
-    setActiveSfxId(null);
-  };
-
-  const handleBgmEnded = () => {
-    setIsBgmPlaying(false);
-    setActiveBgmId(null);
-  };
-
-  // 新增：SFX 結束處理
-  const handleSfxEnded = () => {
-    setActiveSfxId(null);
-  };
-
-  return (
-    <div className="min-h-screen bg-[#111318] text-white p-4 font-sans flex flex-col">
-      <div className="max-w-5xl mx-auto w-full flex-1 flex flex-col gap-4">
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: var(--bg-body); color: var(--text-main); padding: 10px; margin: 0; transition: 0.3s; }
+        .container { max-width: 98%; margin: 15px auto; background: var(--bg-container); padding: 20px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
         
-        {/* Top Control Bar */}
-        <div className="bg-[#1f222b] rounded-xl p-3 shadow-lg border border-slate-800 flex justify-between items-center sticky top-0 z-50">
-          <div className="flex items-center gap-2">
-             <div className="bg-blue-600 p-1.5 rounded-md"><Settings size={18} /></div>
-             <span className="font-bold hidden md:inline">雙軌音控台</span>
-          </div>
+        .header-controls { display: flex; justify-content: space-between; align-items: center; border-bottom: 2px solid #1a73e8; margin-bottom: 20px; padding-bottom: 15px; flex-wrap: wrap; gap: 10px; }
+        h2 { color: #1a73e8; margin: 0; font-size: 1.5rem; }
 
-          <div className="flex items-center gap-4 bg-[#111318] px-4 py-2 rounded-lg border border-slate-800">
-             <Volume2 size={16} className="text-slate-400" />
-             <input 
-               type="range" min="0" max="1" step="0.01" value={volume}
-               onChange={(e) => setVolume(parseFloat(e.target.value))}
-               className="w-24 accent-blue-500 h-1 bg-slate-700 rounded-lg appearance-none cursor-pointer"
-             />
-             <div className="w-px h-4 bg-slate-700 mx-2"></div>
-             <button onClick={stopAll} className="flex items-center gap-1.5 text-red-400 hover:text-red-300 transition-colors text-sm font-bold">
-                <Square size={12} fill="currentColor" /> 停止所有
-             </button>
-          </div>
+        .theme-switch-wrapper { display: flex; align-items: center; }
+        .theme-switch { position: relative; display: inline-block; width: 40px; height: 20px; margin-left: 10px; }
+        .theme-switch input { opacity: 0; width: 0; height: 0; }
+        .slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background-color: #ccc; transition: .4s; border-radius: 20px; }
+        .slider:before { position: absolute; content: ""; height: 14px; width: 14px; left: 3px; bottom: 3px; background-color: white; transition: .4s; border-radius: 50%; }
+        input:checked + .slider { background-color: #1a73e8; }
+        input:checked + .slider:before { transform: translateX(20px); }
 
-          <button
-            onClick={() => { if(isEditMode) stopAll(); setIsEditMode(!isEditMode); }}
-            className={`px-3 py-1.5 rounded-md text-xs font-bold transition-all border ${isEditMode ? 'bg-slate-700 border-slate-600' : 'bg-blue-600 border-blue-500 text-white shadow-lg shadow-blue-500/20'}`}
-          >
-            {isEditMode ? '完成設定' : '進入編輯'}
-          </button>
-        </div>
+        .table-wrapper { width: 100%; overflow-x: auto; margin-bottom: 25px; border-radius: 8px; border: 1px solid var(--input-border); box-shadow: inset 0 0 5px rgba(0,0,0,0.05); }
+        table { width: 100%; border-collapse: collapse; min-width: 1000px; } 
+        th { background: var(--table-th); color: var(--text-muted); padding: 12px 8px; border-bottom: 2px solid #1a73e8; font-size: 13px; text-align: center; white-space: nowrap; }
+        td { padding: 8px; border-bottom: 1px solid var(--input-border); text-align: center; vertical-align: middle; }
+        tr:hover { background-color: var(--row-hover); }
 
-        {/* Hidden Players */}
-        <audio ref={bgmRef} onEnded={handleBgmEnded} />
-        <audio ref={sfxRef} onEnded={handleSfxEnded} /> {/* 新增 SFX 專用播放器 */}
+        select, input { 
+            box-sizing: border-box; height: 38px; border: 1px solid var(--input-border); 
+            border-radius: 4px; background: var(--input-bg); color: var(--text-main); 
+            text-align: center; font-size: 14px; width: 100%; outline: none; transition: border-color 0.2s;
+        }
+        select:focus, input:focus { border-color: #1a73e8; }
 
-        {/* Section 1: Background Music */}
-        <div className="bg-[#1f222b] rounded-xl p-4 shadow-lg border border-slate-800/50">
-           <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-700/50">
-              <Radio className="text-purple-400" size={18} />
-              <h2 className="text-sm font-bold text-slate-200">背景音樂 (BGM)</h2>
-              <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full ml-auto">模式：切換重播</span>
-           </div>
-           
-           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
-              {bgms.map(sound => (
-                <SoundCard 
-                  key={sound.id} 
-                  sound={sound} 
-                  type="bgm" 
-                  isEditMode={isEditMode}
-                  activeBgmId={activeBgmId}
-                  activeSfxId={activeSfxId}
-                  playBgm={playBgm}
-                  playSfx={playSfx}
-                  removeSound={removeSound}
-                  updateSound={updateSound}
-                  handleFileUpload={handleFileUpload}
-                />
-              ))}
-              {isEditMode && (
-                <button onClick={() => addNewButton('bgm')} className="h-24 border-2 border-dashed border-slate-700 rounded-lg flex items-center justify-center text-slate-500 hover:text-purple-400 hover:border-purple-400/50 hover:bg-slate-800/50 transition-all">
-                  <Plus size={24} />
-                </button>
-              )}
-           </div>
-        </div>
-
-        {/* Section 2: Sound Effects */}
-        <div className="bg-[#1f222b] rounded-xl p-4 shadow-lg border border-slate-800/50 flex-1">
-           <div className="flex items-center gap-2 mb-4 pb-2 border-b border-slate-700/50">
-              <Zap className="text-yellow-400" size={18} />
-              <h2 className="text-sm font-bold text-slate-200">特效音效 (SFX)</h2>
-              <span className="text-[10px] bg-slate-800 text-slate-400 px-2 py-0.5 rounded-full ml-auto">模式：單軌鎖定 (播完才可重按)</span>
-           </div>
-           
-           <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-              {sfxs.map(sound => (
-                <SoundCard 
-                  key={sound.id} 
-                  sound={sound} 
-                  type="sfx" 
-                  isEditMode={isEditMode}
-                  activeBgmId={activeBgmId}
-                  activeSfxId={activeSfxId}
-                  playBgm={playBgm}
-                  playSfx={playSfx}
-                  removeSound={removeSound}
-                  updateSound={updateSound}
-                  handleFileUpload={handleFileUpload}
-                />
-              ))}
-              {isEditMode && (
-                <button onClick={() => addNewButton('sfx')} className="h-24 border-2 border-dashed border-slate-700 rounded-lg flex items-center justify-center text-slate-500 hover:text-yellow-400 hover:border-yellow-400/50 hover:bg-slate-800/50 transition-all">
-                  <Plus size={24} />
-                </button>
-              )}
-           </div>
-        </div>
+        .input-box-wrapper { width: 100%; max-width: 180px; margin: 0 auto; display: flex; flex-direction: column; align-items: center; transition: opacity 0.2s; }
+        .unit-group { display: flex; gap: 2px; width: 100%; }
+        .unit-group input { flex: 2; min-width: 60px; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+        .unit-group select { flex: 1; min-width: 60px; border-left: none; border-top-left-radius: 0; border-bottom-left-radius: 0; background-color: rgba(128,128,128,0.1); }
         
-        <div className="text-center text-slate-600 text-[10px]">
-           {isEditMode ? '點擊上傳圖示載入音樂。設定完成後點擊右上角進入演出模式。' : 'BGM 點擊切換，SFX 播放中無法重按。'}
+        .label-hint { font-size: 11px; color: #1a73e8; display: block; margin-bottom: 4px; font-weight: bold; height: 16px; width: 100%; text-align: left; padding-left: 2px; }
+
+        .btn-add { background: #34a853; color: white; border: none; padding: 10px 25px; border-radius: 6px; cursor: pointer; margin-bottom: 15px; font-weight: bold; font-size: 14px; display: flex; align-items: center; gap: 5px; transition: background 0.2s; }
+        .btn-add:hover { background: #2e8b46; }
+        
+        .btn-del { background: #ea4335; color: white; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; transition: background 0.2s; height: 38px; margin-top: 20px; }
+        .btn-del:hover { background: #c62828; }
+
+        .summary-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 15px; margin-top: 20px; }
+        .summary-card { background: var(--accent-blue); color: white; padding: 15px; border-radius: 10px; text-align: center; box-shadow: 0 4px 6px rgba(0,0,0,0.1); display: flex; flex-direction: column; justify-content: space-between; }
+        
+        .summary-card.grand { 
+            background: linear-gradient(135deg, #1a237e 0%, #283593 100%); 
+            border: 1px solid #3949ab; 
+            grid-column: 1 / -1;
+        }
+
+        .card-title { opacity: 0.9; font-size: 14px; font-weight: bold; margin-bottom: 10px; letter-spacing: 0.5px; text-transform: uppercase; }
+        .waste-input-group { background: rgba(255,255,255,0.1); padding: 8px; border-radius: 6px; margin-bottom: 15px; display: flex; align-items: center; justify-content: center; gap: 8px; border: 1px solid rgba(255,255,255,0.2); width: fit-content; margin-left: auto; margin-right: auto; }
+        .waste-input { 
+            width: 80px !important; height: 30px !important; background: white !important; 
+            color: black !important; border: 1px solid #ccc !important; 
+            font-weight: bold; font-size: 15px !important; border-radius: 4px;
+        }
+
+        .weight-flex-row { display: flex; align-items: center; justify-content: center; gap: 20px; margin: 10px 0; }
+        .weight-box { flex: 1; text-align: center; }
+        .weight-divider { width: 1px; height: 30px; background-color: rgba(255,255,255,0.3); }
+        .weight-value { font-size: 1.8rem; font-weight: bold; line-height: 1; }
+        .weight-unit { font-size: 0.9rem; margin-left: 4px; opacity: 0.8; font-weight: normal; }
+        
+        .card-details { font-size: 12px; border-top: 1px solid rgba(255,255,255,0.2); padding-top: 8px; margin-top: 8px; opacity: 0.9; }
+
+        .hidden { display: none !important; opacity: 0; }
+        .visible { display: flex !important; opacity: 1; }
+
+        input::-webkit-outer-spin-button, input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+
+        @media (max-width: 768px) {
+            .container { padding: 10px; }
+            h2 { font-size: 1.2rem; }
+            .btn-del { margin-top: 0; width: 100%; }
+            .summary-card.grand { grid-column: auto; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-controls">
+        <h2>鋼鈑及型鋼規格計算</h2>
+        <div class="theme-switch-wrapper">
+            <span style="font-size:14px; margin-right: 5px;">深夜模式</span>
+            <label class="theme-switch"><input type="checkbox" id="theme-checkbox" checked onclick="toggleTheme()"><span class="slider"></span></label>
         </div>
-      </div>
     </div>
-  );
-}
+    
+    <button class="btn-add" onclick="addRow()">
+        <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg>
+        新增項目
+    </button>
+
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 40px;">#</th>
+                    <th style="width: 150px;">材料類型</th>
+                    <th style="width: 180px;">尺寸規格 A</th>
+                    <th style="width: 180px;">尺寸規格 B</th>
+                    <th style="width: 180px;">裁切長度</th>
+                    <th style="width: 90px;">厚度 (t)</th>
+                    <th style="width: 90px;">數量</th>
+                    <th style="width: 120px;">單項重 (kg)</th>
+                    <th style="width: 60px;">刪除</th>
+                </tr>
+            </thead>
+            <tbody id="table-body"></tbody>
+        </table>
+    </div>
+
+    <div id="summary-grid" class="summary-grid">
+        <div class="summary-card grand" id="card-grand">
+            <div class="card-title">全清單總重量合計 (含損耗)</div>
+            <div class="waste-input-group">
+                <label>總損耗設定：</label>
+                <input type="number" id="grand-waste-pct" class="waste-input" value="0.00" step="1" oninput="updateAll()" onclick="this.select()">
+                <label>%</label>
+            </div>
+            <div class="weight-flex-row">
+                <div class="weight-box">
+                    <span id="grand-weight" class="weight-value">0.00</span><span class="weight-unit">kg</span>
+                </div>
+                <div class="weight-divider"></div>
+                <div class="weight-box">
+                    <span id="grand-weight-ton" class="weight-value">0.000</span><span class="weight-unit">t</span>
+                </div>
+            </div>
+            <div class="card-details">項目總數: <span id="total-items">0</span> | 未含損耗淨重: <span id="net-weight">0.00</span> kg</div>
+        </div>
+        <!-- 其他分類卡片將由 JS 動態生成 -->
+    </div>
+</div>
+
+<script>
+    // 鋼材密度 (kg/mm^3) = 7.85 g/cm^3 / 1000000
+    const DENSITY = 0.00000785; 
+    
+    // 類型定義與顯示名稱
+    const TYPE_DEFS = {
+        'plate': { name: '鋼鈑 (Plate)', hasDim2: false },
+        'flat-bar': { name: '扁鋼 (Flat Bar)', hasDim2: false },
+        'equal-angle': { name: '等邊角鐵 (Equal Angle)', hasDim2: false },
+        'unequal-angle': { name: '不等邊角鐵 (Unequal Angle)', hasDim2: true }
+    };
+
+    function toggleTheme() {
+        const isChecked = document.getElementById('theme-checkbox').checked;
+        document.documentElement.setAttribute('data-theme', isChecked ? 'dark' : 'light');
+    }
+
+    // 初始化：添加一行
+    window.onload = function() {
+        addRow();
+    }
+
+    function addRow() {
+        const tbody = document.getElementById('table-body');
+        const tr = document.createElement('tr');
+        const idx = tbody.children.length + 1;
+        
+        tr.innerHTML = `
+            <td class="item-index" style="color:var(--text-muted); font-size:12px;">${idx}</td>
+            <td>
+                <div class="input-box-wrapper">
+                    <span class="label-hint">選擇種類</span>
+                    <select class="val-type" onchange="handleTypeChange(this); updateAll();">
+                        <option value="plate">鋼鈑 Plate</option>
+                        <option value="flat-bar">扁鋼 Flat Bar</option>
+                        <option value="equal-angle">等邊角鐵</option>
+                        <option value="unequal-angle">不等邊角鐵</option>
+                    </select>
+                </div>
+            </td>
+            <!-- 尺寸一 (Width / Side A) -->
+            <td>
+                <div class="input-box-wrapper w-v1">
+                    <span class="label-hint" id="hint-v1">寬度</span>
+                    <div class="unit-group">
+                        <input type="number" class="val-v1" oninput="updateAll()" placeholder="0">
+                        <select class="val-u1" onchange="updateAll()">
+                            <option value="mm">mm</option>
+                            <option value="cm">cm</option>
+                            <option value="m">m</option>
+                            <option value="ft">ft</option>
+                        </select>
+                    </div>
+                </div>
+            </td>
+            <!-- 尺寸二 (Side B - Only for Unequal Angle) -->
+            <td>
+                <div class="input-box-wrapper w-v2 hidden">
+                    <span class="label-hint" id="hint-v2">短邊</span>
+                    <div class="unit-group">
+                        <input type="number" class="val-v2" oninput="updateAll()" placeholder="0">
+                        <select class="val-u2" onchange="updateAll()">
+                            <option value="mm">mm</option>
+                            <option value="cm">cm</option>
+                            <option value="m">m</option>
+                            <option value="ft">ft</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="input-box-wrapper w-v2-placeholder text-muted" style="font-size:12px; color:var(--text-muted);">
+                    -
+                </div>
+            </td>
+            <!-- 長度 (Length) -->
+            <td>
+                <div class="input-box-wrapper w-v3">
+                    <span class="label-hint">長度</span>
+                    <div class="unit-group">
+                        <input type="number" class="val-v3" oninput="updateAll()" placeholder="0">
+                        <select class="val-u3" onchange="updateAll()">
+                            <option value="mm">mm</option>
+                            <option value="cm">cm</option>
+                            <option value="m">m</option>
+                            <option value="ft">ft</option>
+                        </select>
+                    </div>
+                </div>
+            </td>
+            <!-- 厚度 (Thickness) -->
+            <td>
+                <div class="input-box-wrapper">
+                    <span class="label-hint">mm</span>
+                    <input type="number" class="val-t" oninput="updateAll()" placeholder="0">
+                </div>
+            </td>
+            <!-- 數量 -->
+            <td>
+                <div class="input-box-wrapper">
+                    <span class="label-hint">PCS</span>
+                    <input type="number" class="val-qty" value="1" oninput="updateAll()" onclick="this.select()">
+                </div>
+            </td>
+            <!-- 單行總重 -->
+            <td class="row-total" style="font-weight:bold; color:#1a73e8; font-size:15px;">0.00</td>
+            <td><button class="btn-del" onclick="deleteRow(this)">✕</button></td>
+        `;
+        tbody.appendChild(tr);
+        // 初始化該行的標籤狀態
+        handleTypeChange(tr.querySelector('.val-type'));
+        updateAll();
+    }
+
+    function deleteRow(btn) {
+        const row = btn.closest('tr');
+        row.remove();
+        reIndex();
+        updateAll();
+    }
+
+    function reIndex() {
+        const rows = document.querySelectorAll('#table-body tr');
+        rows.forEach((row, index) => {
+            row.querySelector('.item-index').innerText = index + 1;
+        });
+    }
+
+    function handleTypeChange(selectElem) {
+        const row = selectElem.closest('tr');
+        const type = selectElem.value;
+        const v1Hint = row.querySelector('#hint-v1');
+        const v2Hint = row.querySelector('#hint-v2');
+        const v2Wrapper = row.querySelector('.w-v2');
+        const v2Placeholder = row.querySelector('.w-v2-placeholder');
+
+        // 預設重置
+        v2Wrapper.classList.remove('visible');
+        v2Wrapper.classList.add('hidden');
+        v2Placeholder.classList.remove('hidden');
+
+        if (type === 'plate') {
+            v1Hint.innerText = "寬度";
+        } else if (type === 'flat-bar') {
+            v1Hint.innerText = "扁鐵寬";
+        } else if (type === 'equal-angle') {
+            v1Hint.innerText = "邊寬";
+        } else if (type === 'unequal-angle') {
+            v1Hint.innerText = "長邊";
+            v2Hint.innerText = "短邊";
+            v2Wrapper.classList.remove('hidden');
+            v2Wrapper.classList.add('visible');
+            v2Placeholder.classList.add('hidden');
+        }
+    }
+
+    function toMM(value, unit) {
+        if (!value) return 0;
+        value = parseFloat(value);
+        switch(unit) {
+            case 'cm': return value * 10;
+            case 'm': return value * 1000;
+            case 'ft': return value * 304.8;
+            default: return value; // mm
+        }
+    }
+
+    function updateAll() {
+        const rows = document.querySelectorAll('#table-body tr');
+        let grandTotal = 0;
+        let typeTotals = {};
+
+        // 初始化分類統計物件
+        for (const key in TYPE_DEFS) {
+            typeTotals[key] = { weight: 0, count: 0, name: TYPE_DEFS[key].name };
+        }
+
+        rows.forEach(row => {
+            const type = row.querySelector('.val-type').value;
+            const v1 = toMM(row.querySelector('.val-v1').value, row.querySelector('.val-u1').value);
+            const v2 = toMM(row.querySelector('.val-v2').value, row.querySelector('.val-u2').value); // 僅不等邊角鐵使用
+            const len = toMM(row.querySelector('.val-v3').value, row.querySelector('.val-u3').value);
+            const t = parseFloat(row.querySelector('.val-t').value) || 0;
+            const qty = parseFloat(row.querySelector('.val-qty').value) || 0;
+
+            let weight = 0;
+
+            if (t > 0 && len > 0 && qty > 0) {
+                if (type === 'plate' || type === 'flat-bar') {
+                    // 體積法: 寬 * 長 * 厚 * 密度
+                    if (v1 > 0) {
+                        weight = v1 * len * t * DENSITY;
+                    }
+                } else if (type === 'equal-angle') {
+                    // 等邊角鐵近似公式: 斷面積 * 長 * 密度
+                    // 簡單斷面積 = t * (2*邊寬 - t)
+                    if (v1 > 0) {
+                        const area = t * (2 * v1 - t);
+                        weight = area * len * DENSITY;
+                    }
+                } else if (type === 'unequal-angle') {
+                    // 不等邊角鐵近似公式: 斷面積 * 長 * 密度
+                    // 簡單斷面積 = t * (長邊 + 短邊 - t)
+                    if (v1 > 0 && v2 > 0) {
+                        const area = t * (v1 + v2 - t);
+                        weight = area * len * DENSITY;
+                    }
+                }
+            }
+
+            weight = weight * qty;
+            
+            // 更新該行顯示
+            row.querySelector('.row-total').innerText = weight.toFixed(2);
+
+            // 累加
+            grandTotal += weight;
+            if (typeTotals[type]) {
+                typeTotals[type].weight += weight;
+                typeTotals[type].count += qty;
+            }
+        });
+
+        // 計算損耗
+        const wastePct = parseFloat(document.getElementById('grand-waste-pct').value) || 0;
+        const totalWithWaste = grandTotal * (1 + wastePct / 100);
+
+        // 更新總計卡片
+        document.getElementById('net-weight').innerText = grandTotal.toFixed(2);
+        document.getElementById('grand-weight').innerText = totalWithWaste.toFixed(2);
+        document.getElementById('grand-weight-ton').innerText = (totalWithWaste / 1000).toFixed(3);
+        document.getElementById('total-items').innerText = rows.length;
+
+        renderSummaryCards(typeTotals, wastePct);
+    }
+
+    function renderSummaryCards(typeTotals, wastePct) {
+        const grid = document.getElementById('summary-grid');
+        // 保留第一個總計卡片，移除其他的
+        const grandCard = grid.firstElementChild;
+        grid.innerHTML = '';
+        grid.appendChild(grandCard);
+
+        for (const [key, data] of Object.entries(typeTotals)) {
+            if (data.weight > 0) {
+                const subTotalWithWaste = data.weight * (1 + wastePct / 100);
+                
+                const div = document.createElement('div');
+                div.className = 'summary-card';
+                // 為不同類型給予些微不同的背景色調 (選擇性)
+                if(key.includes('angle')) div.style.background = 'var(--accent-blue)'; 
+                else div.style.background = '#2e7d32'; // 綠色系區分平板
+
+                div.innerHTML = `
+                    <div class="card-title">${data.name}</div>
+                    <div class="weight-flex-row" style="margin: 5px 0;">
+                        <div class="weight-box">
+                            <span class="weight-value" style="font-size:1.5rem">${subTotalWithWaste.toFixed(2)}</span>
+                            <span class="weight-unit">kg</span>
+                        </div>
+                    </div>
+                    <div class="card-details">
+                        數量: ${data.count} 支/片 | 佔總重: ${((subTotalWithWaste / parseFloat(document.getElementById('grand-weight').innerText || 1)) * 100).toFixed(1)}%
+                    </div>
+                `;
+                grid.appendChild(div);
+            }
+        }
+    }
+</script>
+
+</body>
+</html>
